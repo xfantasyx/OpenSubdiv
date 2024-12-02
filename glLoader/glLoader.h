@@ -137,7 +137,11 @@
 /// The boolean variables described here are defined in an internal namespace.
 ///
 
-#if defined(OSD_USES_INTERNAL_GLAPILOADER)
+#if defined(__ANDROID__) || defined(ANDROID)
+#include <GLES3/gl3.h>
+#include <GLES3/gl31.h>
+#include <GLES3/gl32.h>
+#elif defined(OSD_USES_INTERNAL_GLAPILOADER)
     // -- GLAPILOADER
     #include "glApi.h"
 

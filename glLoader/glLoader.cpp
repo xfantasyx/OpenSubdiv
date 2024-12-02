@@ -36,7 +36,9 @@ namespace GLLoader {
 bool
 applicationInitializeGL()
 {
-#if defined(OSD_USES_INTERNAL_GLAPILOADER)
+#if defined(__ANDROID__) || defined(ANDROID)
+
+#elif defined(OSD_USES_INTERNAL_GLAPILOADER)
     // -- GLAPILOADER
     return OpenSubdiv::internal::GLApi::glApiLoad();
 
@@ -65,7 +67,9 @@ applicationInitializeGL()
 bool
 libraryInitializeGL()
 {
-#if defined(OSD_USES_INTERNAL_GLAPILOADER)
+#if defined(__ANDROID__) || defined(ANDROID)
+                return true;
+#elif defined(OSD_USES_INTERNAL_GLAPILOADER)
     return OpenSubdiv::internal::GLApi::glApiLoad();
 #else
     // otherwise do nothing

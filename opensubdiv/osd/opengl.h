@@ -37,7 +37,7 @@
         #endif
     #endif
 #elif defined(ANDROID)
-    #include <GLES2/gl2.h>
+#include <GLES3/gl3.h>
 #else
     #if defined(_WIN32)
         #define WIN32_LEAN_AND_MEAN

@@ -31,13 +31,13 @@
 
 if(ANDROID)
     FIND_PATH( OPENGLES_INCLUDE_DIR
-        GLES2/gl2.h
+        GLES3/gl3.h
         "${ANDROID_STANDALONE_TOOLCHAIN}/usr/include"
     )
 
     FIND_LIBRARY( OPENGLES_LIBRARIES
         NAMES
-            GLESv2
+            GLESv3
         PATHS
             "${ANDROID_STANDALONE_TOOLCHAIN}/usr/lib"
     )

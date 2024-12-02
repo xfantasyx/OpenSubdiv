@@ -355,10 +355,30 @@ endif()
 if(NOT NO_TBB)
     find_package(TBB 2018 COMPONENTS tbb)
 endif()
-if (NOT NO_OPENGL)
-    find_package(OpenGL)
-endif()
+
 find_package(OpenGLES)
+
+if (NOT NO_OPENGL)
+    if(ANDROID)
+
+        SET(OPENGL_FOUND ${OPENGLES_FOUND})
+
+        if(NOT TARGET OpenGL::GL)
+            add_library(OpenGL::GL INTERFACE IMPORTED)
+
+            set_target_properties(OpenGL::GL PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${OPENGLES_INCLUDE_DIR}"
+            # INTERFACE_LINK_LIBRARIES "${OPENGLES_LIBRARIES}"
+            )
+
+            set_property(TARGET OpenGL::GL APPEND PROPERTY INTERFACE_LINK_LIBRARIES GLESv3)
+        endif()
+
+    else()
+        find_package(OpenGL REQUIRED)
+    endif()
+endif()
+
 if(NOT NO_OPENCL)
     if(NOT NO_CLEW)
         find_package(CLEW)
@@ -395,6 +415,8 @@ if (OPENGL_FOUND AND NOT IOS)
     endif()
     if(GLEW_FOUND)
         add_definitions( -DOSD_USES_GLEW )
+    elseif(ANDROID)
+
     else()
         add_definitions( -DOSD_USES_INTERNAL_GLAPILOADER )
     endif()
@@ -501,6 +523,7 @@ elseif(OPENGL_FOUND)
     set(OPENGL_LOADER_INCLUDE_DIRS
         ${PROJECT_SOURCE_DIR}/glLoader)
     set(OPENGL_LOADER_LIBRARIES
+        OpenGL::GL
         ${CMAKE_DL_LIBS})
 
 endif()
@@ -901,7 +924,7 @@ endif()
 #
 include(CMakePackageConfigHelpers)
 
-set(OPENSUBDIV_CONFIG_PATH "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+set(OPENSUBDIV_CONFIG_PATH "cmake")
 
 configure_package_config_file(
     opensubdiv-config.cmake.in
