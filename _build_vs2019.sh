@@ -159,10 +159,10 @@ remove_lib()
 }
 
 update_lib zlib_1_2_11
-update_lib ptex_2_4
+update_lib ptex_2_4_0
 
 DPENS="${__install_dir}/zlib_1_2_11"
-DPENS+=":${__install_dir}/ptex_2_4"
+DPENS+=":${__install_dir}/ptex_2_4_0"
 DPENS+=":${__install_dir}/Python310"
 DPENS+=":${__install_dir}/Python310/Scripts"
 
