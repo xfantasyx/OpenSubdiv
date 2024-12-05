@@ -1,6 +1,6 @@
 @PACKAGE_INIT@
 
-set_and_check(OpenSubdiv_INCLUDE_DIR "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_INCLUDEDIR@")
+# set_and_check(OpenSubdiv_INCLUDE_DIR "@PACKAGE_CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_INCLUDEDIR@")
 
 include("${CMAKE_CURRENT_LIST_DIR}/OpenSubdivTargets.cmake")
 
@@ -22,5 +22,8 @@ if(NOT OPENSUBDIV_OSDGPU_LIBRARY)
       set(OPENSUBDIV_OSDGPU_LIBRARY OpenSubdiv::osdGPU)
     endif()
 endif()
+
+get_target_property(OpenSubdiv_INCLUDE_DIR ${OPENSUBDIV_OSDCPU_LIBRARY} INTERFACE_INCLUDE_DIRECTORIES)
+
 
 message("Found OpenSubdiv: (found version @OpenSubdiv_VERSION@)")
