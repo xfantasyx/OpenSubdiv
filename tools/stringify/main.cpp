@@ -28,34 +28,38 @@
 #include <string>
 
 
-std::string stringify( std::string const & line ) {
+std::string stringify( std::string const & s ) {
 
-    bool inconstant=false;
+    bool withinStringConstant = false;
+    std::string result = "";
+    
 
-    std::stringstream s;
-    for (int i=0; i<(int)line.size(); ++i) {
-
+    for (int i = 0; i < (int)s.length() - 1; ++i) 
+    {
         // escape double quotes
-        if (line[i]=='"') {
-            s << '\\' ;
-            inconstant = inconstant ? false : true;
+        if (s[i] == '"') 
+        {
+            result += '\\';
+            withinStringConstant = !withinStringConstant;
         }
 
-        if (line[i]=='\\' && line[i+1]=='\0') {
-            s << "\"";
-            return s.str();
+        if (s[i] == '\\' && i == (int)s.length() - 2) 
+        {
+            return result + "\"";
         }
 
         // escape backslash
-        if (inconstant && line[i]=='\\')
-           s << '\\' ;
+        if (withinStringConstant && s[i] == '\\') 
+        {
+            result += '\\';
+        }
 
-        s << line[i];
+        result += s[i];
     }
 
-    s << "\\n\"";
 
-    return s.str();
+    return result + "\\n\"";
+
 }
 
 int main(int argc, char **argv) {
