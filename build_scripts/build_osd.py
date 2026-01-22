@@ -1,35 +1,15 @@
 #
 # Copyright 2019 Pixar
 #
-# Licensed under the Apache License, Version 2.0 (the "Apache License")
-# with the following modification; you may not use this file except in
-# compliance with the Apache License and the following modification to it:
-# Section 6. Trademarks. is deleted and replaced with:
-#
-# 6. Trademarks. This License does not grant permission to use the trade
-#    names, trademarks, service marks, or product names of the Licensor
-#    and its affiliates, except as required to comply with Section 4(c) of
-#    the License and to reproduce the content of the NOTICE file.
-#
-# You may obtain a copy of the Apache License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the Apache License with the above modification is
-# distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-# KIND, either express or implied. See the Apache License for the specific
-# language governing permissions and limitations under the Apache License.
+# Licensed under the terms set forth in the LICENSE.txt file available at
+# https://opensubdiv.org/license.
 #
 from __future__ import print_function
-
-from distutils.spawn import find_executable
 
 import argparse
 import codecs
 import contextlib
 import datetime
-import distutils
 import fnmatch
 import glob
 import locale
@@ -46,8 +26,10 @@ import zipfile
 
 if sys.version_info.major >= 3:
     from urllib.request import urlopen
+    from shutil import which
 else:
     from urllib2 import urlopen
+    from distutils.spawn import find_executable as which
 
 # Helpers for printing output
 verbosity = 1
@@ -114,16 +96,24 @@ def GetVisualStudioCompilerAndVersion():
     if not Windows():
         return None
 
-    msvcCompiler = find_executable('cl')
+    msvcCompiler = which('cl')
     if msvcCompiler:
         # VisualStudioVersion environment variable should be set by the
         # Visual Studio Command Prompt.
         match = re.search(
-            "(\d+).(\d+)",
+            r"(\d+).(\d+)",
             os.environ.get("VisualStudioVersion", ""))
         if match:
             return (msvcCompiler, tuple(int(v) for v in match.groups()))
     return None
+
+def IsVisualStudio2022OrGreater():
+    VISUAL_STUDIO_2022_VERSION = (17, 0)
+    msvcCompilerAndVersion = GetVisualStudioCompilerAndVersion()
+    if msvcCompilerAndVersion:
+        _, version = msvcCompilerAndVersion
+        return version >= VISUAL_STUDIO_2022_VERSION
+    return False
 
 def IsVisualStudio2019OrGreater():
     VISUAL_STUDIO_2019_VERSION = (16, 0)
@@ -220,6 +210,15 @@ def RunCMake(context, force, extraArgs = None):
     source code is located in the current working directory."""
     # Create a directory for out-of-source builds in the build directory
     # using the name of the current working directory.
+
+    # Ensure we can freely modify our extraArgs without affecting caller
+    if extraArgs is None:
+        extraArgs = []
+    else:
+        extraArgs = list(extraArgs)
+
+    extraArgs.append("-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+
     srcDir = os.getcwd()
     instDir = (context.osdInstDir if srcDir == context.osdSrcDir
                else context.instDir)
@@ -236,7 +235,10 @@ def RunCMake(context, force, extraArgs = None):
     # On Windows, we need to explicitly specify the generator to ensure we're
     # building a 64-bit project. (Surely there is a better way to do this?)
     if generator is None and Windows():
-        if IsVisualStudio2019OrGreater():
+        if IsVisualStudio2022OrGreater():
+            generator = "Visual Studio 17 2022"
+            generatorPlatform = "x64"
+        elif IsVisualStudio2019OrGreater():
             generator = "Visual Studio 16 2019"
             generatorPlatform = "x64"
         elif IsVisualStudio2017OrGreater():
@@ -463,6 +465,19 @@ class Dependency(object):
 
 
 ############################################################
+# Intel oneTBB
+
+ONETBB_URL = "https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2021.12.0.zip"
+
+def InstallOneTBB(context, force, buildArgs):
+    with CurrentWorkingDirectory(DownloadURL(ONETBB_URL, context, force)):
+        RunCMake(context, force,
+                 ['-DTBB_TEST=OFF',
+                  '-DTBB_STRICT=OFF'] + buildArgs)
+
+ONETBB = Dependency("oneTBB", InstallOneTBB, "include/oneapi/tbb.h")
+
+############################################################
 # Intel TBB
 
 if Windows():
@@ -510,7 +525,7 @@ TBB = Dependency("TBB", InstallTBB, "include/tbb/tbb.h")
 ############################################################
 # GLFW
 
-GLFW_URL = "https://github.com/glfw/glfw/archive/3.2.1.zip"
+GLFW_URL = "https://github.com/glfw/glfw/archive/3.3.3.zip"
 
 def InstallGLFW(context, force, buildArgs):
     with CurrentWorkingDirectory(DownloadURL(GLFW_URL, context, force)):
@@ -521,7 +536,7 @@ GLFW = Dependency("GLFW", InstallGLFW, "include/GLFW/glfw3.h")
 ############################################################
 # zlib
 
-ZLIB_URL = "https://github.com/madler/zlib/archive/v1.2.11.zip"
+ZLIB_URL = "https://github.com/madler/zlib/archive/v1.2.13.zip"
 
 def InstallZlib(context, force, buildArgs):
     with CurrentWorkingDirectory(DownloadURL(ZLIB_URL, context, force)):
@@ -532,37 +547,17 @@ ZLIB = Dependency("zlib", InstallZlib, "include/zlib.h")
 ############################################################
 # Ptex
 
-PTEX_URL = "https://github.com/wdas/ptex/archive/v2.1.28.zip"
+PTEX_URL = "https://github.com/wdas/ptex/archive/refs/tags/v2.4.2.zip"
 
 def InstallPtex(context, force, buildArgs):
-    if Windows():
-        InstallPtex_Windows(context, force, buildArgs)
-    else:
-        InstallPtex_LinuxOrMacOS(context, force, buildArgs)
+    cmakeOptions = [
+        '-DBUILD_TESTING=OFF',
+        '-DPTEX_BUILD_STATIC_LIBS=OFF',
+    ]
+    cmakeOptions += buildArgs
 
-def InstallPtex_Windows(context, force, buildArgs):
     with CurrentWorkingDirectory(DownloadURL(PTEX_URL, context, force)):
-        # Ptex has a bug where the import library for the dynamic library and
-        # the static library both get the same name, Ptex.lib, and as a
-        # result one clobbers the other. We hack the appropriate CMake
-        # file to prevent that. Since we don't need the static library we'll
-        # rename that.
-        #
-        # In addition src\tests\CMakeLists.txt adds -DPTEX_STATIC to the
-        # compiler but links tests against the dynamic library, causing the
-        # links to fail. We patch the file to not add the -DPTEX_STATIC
-        PatchFile('src\\ptex\\CMakeLists.txt',
-                  [("set_target_properties(Ptex_static PROPERTIES OUTPUT_NAME Ptex)",
-                    "set_target_properties(Ptex_static PROPERTIES OUTPUT_NAME Ptexs)")])
-        PatchFile('src\\tests\\CMakeLists.txt',
-                  [("add_definitions(-DPTEX_STATIC)",
-                    "# add_definitions(-DPTEX_STATIC)")])
-
-        RunCMake(context, force, buildArgs)
-
-def InstallPtex_LinuxOrMacOS(context, force, buildArgs):
-    with CurrentWorkingDirectory(DownloadURL(PTEX_URL, context, force)):
-        RunCMake(context, force, buildArgs)
+        RunCMake(context, force, cmakeOptions)
 
 PTEX = Dependency("Ptex", InstallPtex, "include/PtexVersion.h")
 
@@ -584,7 +579,7 @@ def InstallOpenSubdiv(context, force, buildArgs):
         else:
             extraArgs.append('-DNO_PTEX=ON')
 
-        if context.buildTBB:
+        if context.buildTBB or context.buildOneTBB:
             extraArgs.append('-DNO_TBB=OFF')
         else:
             extraArgs.append('-DNO_TBB=ON')
@@ -774,6 +769,12 @@ subgroup.add_argument("--tbb", dest="build_tbb", action="store_true",
 subgroup.add_argument("--no-tbb", dest="build_tbb",
                       action="store_false",
                       help="Disable TBB support (default)")
+subgroup.add_argument("--onetbb", dest="build_onetbb", action="store_true",
+                      default=False,
+                      help="Enable oneTBB support")
+subgroup.add_argument("--no-onetbb", dest="build_onetbb",
+                      action="store_false",
+                      help="Disable oneTBB support (default)")
 
 subgroup = group.add_mutually_exclusive_group()
 subgroup.add_argument("--omp", dest="build_omp", action="store_true",
@@ -838,10 +839,10 @@ class InstallContext:
         # use urllib2 all the time is that some older versions of Python
         # don't support TLS v1.2, which is required for downloading some
         # dependencies.
-        if find_executable("curl"):
+        if which("curl"):
             self.downloader = DownloadFileWithCurl
             self.downloaderName = "curl"
-        elif Windows() and find_executable("powershell"):
+        elif Windows() and which("powershell"):
             self.downloader = DownloadFileWithPowershell
             self.downloaderName = "powershell"
         else:
@@ -880,6 +881,7 @@ class InstallContext:
         self.buildTests = args.build_tests
         self.buildDocs = args.build_docs
         self.buildTBB = args.build_tbb
+        self.buildOneTBB = args.build_onetbb
         self.buildOMP = args.build_omp
         self.buildCUDA = args.build_cuda
         self.cudaLocation = args.cuda_location
@@ -927,6 +929,8 @@ if context.buildPtex:
 
 if context.buildTBB:
     requiredDependencies += [TBB]
+if context.buildOneTBB:
+    requiredDependencies += [ONETBB]
 
 
 
@@ -937,23 +941,23 @@ for dep in requiredDependencies:
             dependenciesToBuild.append(dep)
 
 # Verify toolchain needed to build required dependencies
-if (not find_executable("g++") and
-    not find_executable("clang") and
+if (not which("g++") and
+    not which("clang") and
     not GetXcodeDeveloperDirectory() and
     not GetVisualStudioCompilerAndVersion()):
     PrintError("C++ compiler not found -- please install a compiler")
     sys.exit(1)
 
-if not find_executable("cmake"):
+if not which("cmake"):
     PrintError("CMake not found -- please install it and adjust your PATH")
     sys.exit(1)
 
 if context.buildDocs:
-    if not find_executable("doxygen"):
+    if not which("doxygen"):
         PrintError("doxygen not found -- please install it and adjust your PATH")
         sys.exit(1)
 
-    if not find_executable("dot"):
+    if not which("dot"):
         PrintError("dot not found -- please install graphviz and adjust your "
                    "PATH")
         sys.exit(1)
@@ -972,6 +976,7 @@ Building with settings:
 
   Building
       TBB support:              {buildTBB}
+      oneTBB support:           {buildOneTBB}
       OMP support:              {buildOMP}
       CUDA support:             {buildCUDA}
       OpenCL support:           {buildOpenCL}
@@ -1011,6 +1016,7 @@ summaryMsg = summaryMsg.format(
                   ", ".join([d.name for d in dependenciesToBuild])),
     buildArgs=FormatBuildArguments(context.buildArgs),
     buildTBB=("On" if context.buildTBB else "Off"),
+    buildOneTBB=("On" if context.buildOneTBB else "Off"),
     buildOMP=("On" if context.buildOMP else "Off"),
     buildCUDA=("On" if context.buildCUDA else "Off"),
     buildOpenCL=("On" if context.buildOpenCL else "Off"),

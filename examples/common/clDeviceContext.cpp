@@ -1,25 +1,8 @@
 //
 //   Copyright 2015 Pixar
 //
-//   Licensed under the Apache License, Version 2.0 (the "Apache License")
-//   with the following modification; you may not use this file except in
-//   compliance with the Apache License and the following modification to it:
-//   Section 6. Trademarks. is deleted and replaced with:
-//
-//   6. Trademarks. This License does not grant permission to use the trade
-//      names, trademarks, service marks, or product names of the Licensor
-//      and its affiliates, except as required to comply with Section 4(c) of
-//      the License and to reproduce the content of the NOTICE file.
-//
-//   You may obtain a copy of the Apache License at
-//
-//       http://www.apache.org/licenses/LICENSE-2.0
-//
-//   Unless required by applicable law or agreed to in writing, software
-//   distributed under the Apache License with the above modification is
-//   distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-//   KIND, either express or implied. See the Apache License for the specific
-//   language governing permissions and limitations under the Apache License.
+//   Licensed under the terms set forth in the LICENSE.txt file available at
+//   https://opensubdiv.org/license.
 //
 
 #define CL_USE_DEPRECATED_OPENCL_2_0_APIS
@@ -31,6 +14,7 @@
     #include <windows.h>
 #elif defined(__APPLE__)
     #include <OpenGL/OpenGL.h>
+    #include <OpenGL/CGLCurrent.h>
 #else
     #include <GL/glx.h>
 #endif
@@ -229,6 +213,19 @@ CLDeviceContext::Initialize() {
                             numDevices * sizeof(cl_device_id), clDevices, NULL);
     int clDeviceUsed = 0;
 
+    if (ciErrNum != CL_SUCCESS) {
+        error("Error %d in clCreateContext\n", ciErrNum);
+        delete[] clDevices;
+        return false;
+    }
+
+    _clCommandQueue = clCreateCommandQueue(
+        _clContext, clDevices[clDeviceUsed], 0, &ciErrNum);
+    delete[] clDevices;
+    if (ciErrNum != CL_SUCCESS) {
+        error("Error %d in clCreateCommandQueue\n", ciErrNum);
+        return false;
+    }
 #else   // not __APPLE__
 
     // get the number of GPU devices available to the platform
@@ -256,21 +253,21 @@ CLDeviceContext::Initialize() {
     _clContext = clCreateContext(props, 1, &clDevices[clDeviceUsed],
                                  NULL, NULL, &ciErrNum);
 
-#endif   // not __APPLE__
-
     if (ciErrNum != CL_SUCCESS) {
         error("Error %d in clCreateContext\n", ciErrNum);
         delete[] clDevices;
         return false;
     }
 
-    _clCommandQueue = clCreateCommandQueue(_clContext, clDevices[clDeviceUsed],
-                                    0, &ciErrNum);
+    _clCommandQueue = clCreateCommandQueueWithProperties(
+        _clContext, clDevices[clDeviceUsed], NULL, &ciErrNum);
     delete[] clDevices;
     if (ciErrNum != CL_SUCCESS) {
-        error("Error %d in clCreateCommandQueue\n", ciErrNum);
+        error("Error %d in clCreateCommandQueueWithProperties\n", ciErrNum);
         return false;
     }
+#endif   // not __APPLE__
+
     return true;
 }
 
@@ -336,11 +333,11 @@ CLD3D11DeviceContext::Initialize(ID3D11DeviceContext *d3dDeviceContext) {
         return false;
     }
 
-    _clCommandQueue = clCreateCommandQueue(_clContext, clDevices[clDeviceUsed],
-                                    0, &ciErrNum);
+    _clCommandQueue = clCreateCommandQueueWithProperties(
+        _clContext, clDevices[clDeviceUsed], NULL, &ciErrNum);
     delete[] clDevices;
     if (ciErrNum != CL_SUCCESS) {
-        error("Error %d in clCreateCommandQueue\n", ciErrNum);
+        error("Error %d in clCreateCommandQueueWithProperties\n", ciErrNum);
         return false;
     }
     return true;

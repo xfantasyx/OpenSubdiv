@@ -1,25 +1,8 @@
 //
 //   Copyright 2013 Pixar
 //
-//   Licensed under the Apache License, Version 2.0 (the "Apache License")
-//   with the following modification; you may not use this file except in
-//   compliance with the Apache License and the following modification to it:
-//   Section 6. Trademarks. is deleted and replaced with:
-//
-//   6. Trademarks. This License does not grant permission to use the trade
-//      names, trademarks, service marks, or product names of the Licensor
-//      and its affiliates, except as required to comply with Section 4(c) of
-//      the License and to reproduce the content of the NOTICE file.
-//
-//   You may obtain a copy of the Apache License at
-//
-//       http://www.apache.org/licenses/LICENSE-2.0
-//
-//   Unless required by applicable law or agreed to in writing, software
-//   distributed under the Apache License with the above modification is
-//   distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-//   KIND, either express or implied. See the Apache License for the specific
-//   language governing permissions and limitations under the Apache License.
+//   Licensed under the terms set forth in the LICENSE.txt file available at
+//   https://opensubdiv.org/license.
 //
 
 #import "ViewController.h"
@@ -197,7 +180,7 @@ enum {
         }
     };
     
-    auto callbackScheme = [=](int scheme) {
+    auto callbackScheme = [=](int) {
         return;
     };
     
@@ -318,10 +301,10 @@ enum {
 //                       10, 300, callbackCheckbox, kHUD_CB_ADAPTIVE, '`');
     
     for (int i = 1; i < 8; ++i) {
-        char level[16];
-        sprintf(level, "Lv. %d", i);
-        hud.AddRadioButton(kHUD_RB_LEVEL, level, _osdRenderer.refinementLevel == i,
-                              10, 320+i*20, callbackLevel, i, '0'+i);
+        NSString *level = [NSString stringWithFormat:@"Lv. %d", i];
+        hud.AddRadioButton(kHUD_RB_LEVEL, [level UTF8String],
+                           i==(int)_osdRenderer.refinementLevel,
+                           10, 320+i*20, callbackLevel, i, '0'+i);
     }
     
     int compute_pulldown = hud.AddPullDown("Compute (K)", 475, 10, 300, callbackKernel, 'k');
@@ -428,7 +411,7 @@ enum {
     __weak auto blockSemaphore = _frameSemaphore;
     unsigned frameId = _currentFrame % FRAME_HISTORY;
     auto frameBeginTime = CACurrentMediaTime();
-    [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> _Nonnull c) {
+    [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> _Nonnull) {
         dispatch_semaphore_signal(blockSemaphore);
         _frameBeginTimestamp[frameId] = CACurrentMediaTime() - frameBeginTime;
     }];

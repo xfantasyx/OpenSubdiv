@@ -1,25 +1,8 @@
 //
 //   Copyright 2018 DreamWorks Animation LLC.
 //
-//   Licensed under the Apache License, Version 2.0 (the "Apache License")
-//   with the following modification; you may not use this file except in
-//   compliance with the Apache License and the following modification to it:
-//   Section 6. Trademarks. is deleted and replaced with:
-//
-//   6. Trademarks. This License does not grant permission to use the trade
-//      names, trademarks, service marks, or product names of the Licensor
-//      and its affiliates, except as required to comply with Section 4(c) of
-//      the License and to reproduce the content of the NOTICE file.
-//
-//   You may obtain a copy of the Apache License at
-//
-//       http://www.apache.org/licenses/LICENSE-2.0
-//
-//   Unless required by applicable law or agreed to in writing, software
-//   distributed under the Apache License with the above modification is
-//   distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-//   KIND, either express or implied. See the Apache License for the specific
-//   language governing permissions and limitations under the Apache License.
+//   Licensed under the terms set forth in the LICENSE.txt file available at
+//   https://opensubdiv.org/license.
 //
 
 #include "../far/patchBuilder.h"
@@ -1523,7 +1506,7 @@ SourcePatch::Finalize(int size) {
             _localRingSizes[cIndex] = _ringSizes[cIndex] - (_numCorners - 1)
                                     - corner._sharesWithPrev - corner._sharesWithNext;
 
-            if (corner._val2Adjacent) {
+            if (corner._val2Adjacent && !corner._boundary) {
                 _localRingSizes[cIndex] -= prevIsVal2Interior;
                 _localRingSizes[cIndex] -= (nextIsVal2Interior && isQuad);
             }
@@ -1575,7 +1558,7 @@ SourcePatch::GetCornerRingPoints(int corner, int ringPoints[]) const {
     ringPoints[ringSize++] = cPrev;
 
     //  Shared points preceding the local ring points:
-    if (_corners[cPrev]._val2Interior) {
+    if (_corners[cPrev]._val2Interior && !_corners[corner]._boundary) {
         ringPoints[ringSize++] = isQuad ? cOpp : cNext;
     }
     if (_corners[corner]._sharesWithPrev) {
@@ -1592,12 +1575,12 @@ SourcePatch::GetCornerRingPoints(int corner, int ringPoints[]) const {
         if (_corners[corner]._sharesWithNext) {
             ringPoints[ringSize++] = _localRingOffsets[cNext];
         }
-        if (_corners[cNext]._val2Interior) {
+        if (_corners[cNext]._val2Interior && !_corners[corner]._boundary) {
             ringPoints[ringSize++] = cOpp;
         }
     } else {
         if (_corners[corner]._sharesWithNext) {
-            if (_corners[cNext]._val2Interior) {
+            if (_corners[cNext]._val2Interior && !_corners[corner]._boundary) {
                 ringPoints[ringSize++] = cPrev;
             } else if (_localRingSizes[cNext] == 0) {
                 ringPoints[ringSize++] = _localRingOffsets[cPrev];

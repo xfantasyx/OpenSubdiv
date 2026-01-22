@@ -1,25 +1,8 @@
 #
 #   Copyright 2013 Pixar
 #
-#   Licensed under the Apache License, Version 2.0 (the "Apache License")
-#   with the following modification; you may not use this file except in
-#   compliance with the Apache License and the following modification to it:
-#   Section 6. Trademarks. is deleted and replaced with:
-#
-#   6. Trademarks. This License does not grant permission to use the trade
-#      names, trademarks, service marks, or product names of the Licensor
-#      and its affiliates, except as required to comply with Section 4(c) of
-#      the License and to reproduce the content of the NOTICE file.
-#
-#   You may obtain a copy of the Apache License at
-#
-#       http://www.apache.org/licenses/LICENSE-2.0
-#
-#   Unless required by applicable law or agreed to in writing, software
-#   distributed under the Apache License with the above modification is
-#   distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-#   KIND, either express or implied. See the Apache License for the specific
-#   language governing permissions and limitations under the Apache License.
+#   Licensed under the terms set forth in the LICENSE.txt file available at
+#   https://opensubdiv.org/license.
 #
 
 #-------------------------------------------------------------------------------
@@ -64,6 +47,70 @@ list(APPEND KERNEL_FILES
     patchBasisTypes.h
     patchBasis.h
 )
+
+#-------------------------------------------------------------------------------
+# GLSL patch shader source
+if( OSD_PATCH_SHADER_SOURCE_GLSL OR
+        (NOT NO_OPENGL AND (OPENGL_FOUND OR OPENGLES_FOUND)) )
+    list(APPEND PUBLIC_HEADER_FILES
+        glslPatchShaderSource.h
+    )
+    list(APPEND GPU_SOURCE_FILES
+        glslPatchShaderSource.cpp
+    )
+    list(APPEND KERNEL_FILES
+        glslPatchCommon.glsl
+        glslPatchCommonTess.glsl
+        glslPatchBoxSplineTriangle.glsl
+        glslPatchBSpline.glsl
+        glslPatchGregory.glsl
+        glslPatchGregoryBasis.glsl
+        glslPatchGregoryTriangle.glsl
+        glslPatchLegacy.glsl
+    )
+endif()
+
+#-------------------------------------------------------------------------------
+# HLSL patch shader source
+if( OSD_PATCH_SHADER_SOURCE_HLSL OR DXSDK_FOUND )
+    list(APPEND PUBLIC_HEADER_FILES
+        hlslPatchShaderSource.h
+    )
+    list(APPEND GPU_SOURCE_FILES
+        hlslPatchShaderSource.cpp
+    )
+    list(APPEND KERNEL_FILES
+        hlslPatchCommon.hlsl
+        hlslPatchCommonTess.hlsl
+        hlslPatchBoxSplineTriangle.hlsl
+        hlslPatchBSpline.hlsl
+        hlslPatchGregory.hlsl
+        hlslPatchGregoryBasis.hlsl
+        hlslPatchGregoryTriangle.hlsl
+        hlslPatchLegacy.hlsl
+    )
+endif()
+
+#-------------------------------------------------------------------------------
+# MSL patch shader source
+if( OSD_PATCH_SHADER_SOURCE_MSL OR METAL_FOUND )
+    list(APPEND PUBLIC_HEADER_FILES
+        mtlPatchShaderSource.h
+    )
+    list(APPEND GPU_SOURCE_FILES
+        mtlPatchShaderSource.mm
+    )
+    list(APPEND KERNEL_FILES
+        mtlPatchCommon.metal
+        mtlPatchCommonTess.metal
+        mtlPatchBoxSplineTriangle.metal
+        mtlPatchBSpline.metal
+        mtlPatchGregory.metal
+        mtlPatchGregoryBasis.metal
+        mtlPatchGregoryTriangle.metal
+        mtlPatchLegacy.metal
+    )
+endif()
 
 #-------------------------------------------------------------------------------
 set(OPENMP_PUBLIC_HEADERS
@@ -119,7 +166,6 @@ set(GL_PUBLIC_HEADERS
     glPatchTable.h
     glVertexBuffer.h
     glMesh.h
-    glslPatchShaderSource.h
 )
 
 if( (NOT NO_OPENGL) AND (OPENGL_FOUND OR OPENGLES_FOUND) )
@@ -128,21 +174,8 @@ if( (NOT NO_OPENGL) AND (OPENGL_FOUND OR OPENGLES_FOUND) )
         glLegacyGregoryPatchTable.cpp
         glPatchTable.cpp
         glVertexBuffer.cpp
-        glslPatchShaderSource.cpp
     )
     list(APPEND PUBLIC_HEADER_FILES ${GL_PUBLIC_HEADERS})
-    if ( OPENGL_FOUND )
-        list(APPEND KERNEL_FILES
-            glslPatchCommon.glsl
-            glslPatchCommonTess.glsl
-            glslPatchBoxSplineTriangle.glsl
-            glslPatchBSpline.glsl
-            glslPatchGregory.glsl
-            glslPatchGregoryBasis.glsl
-            glslPatchGregoryTriangle.glsl
-            glslPatchLegacy.glsl
-        )
-    endif()
 endif()
 
 list(APPEND DOXY_HEADER_FILES ${GL_PUBLIC_HEADERS})
@@ -201,7 +234,6 @@ set(DXSDK_PUBLIC_HEADERS
     d3d11PatchTable.h
     d3d11VertexBuffer.h
     d3d11Mesh.h
-    hlslPatchShaderSource.h
 )
 if( DXSDK_FOUND )
     list(APPEND GPU_SOURCE_FILES
@@ -210,19 +242,10 @@ if( DXSDK_FOUND )
         d3d11LegacyGregoryPatchTable.cpp
         d3d11PatchTable.cpp
         d3d11VertexBuffer.cpp
-        hlslPatchShaderSource.cpp
     )
     list(APPEND PUBLIC_HEADER_FILES ${DXSDK_PUBLIC_HEADERS})
     list(APPEND KERNEL_FILES
         hlslComputeKernel.hlsl
-        hlslPatchCommon.hlsl
-        hlslPatchCommonTess.hlsl
-        hlslPatchBoxSplineTriangle.hlsl
-        hlslPatchBSpline.hlsl
-        hlslPatchGregory.hlsl
-        hlslPatchGregoryBasis.hlsl
-        hlslPatchGregoryTriangle.hlsl
-        hlslPatchLegacy.hlsl
     )
     list(APPEND PLATFORM_GPU_LIBRARIES
         ${DXSDK_LIBRARIES}
@@ -239,7 +262,6 @@ set(METAL_PUBLIC_HEADERS
     mtlLegacyGregoryPatchTable.h
     mtlPatchTable.h
     mtlMesh.h
-    mtlPatchShaderSource.h
     mtlCommon.h
 )
 
@@ -251,7 +273,6 @@ if( METAL_FOUND )
         mtlLegacyGregoryPatchTable.mm
         mtlPatchTable.mm
         mtlVertexBuffer.mm
-        mtlPatchShaderSource.mm
     )
 
     set_source_files_properties(
@@ -261,20 +282,9 @@ if( METAL_FOUND )
         "-fobjc-arc")
 
     list(APPEND GPU_SOURCE_FILES ${METAL_SOURCE_FILES})
-
-    
-
     list(APPEND PUBLIC_HEADER_FILES ${METAL_PUBLIC_HEADERS})
     list(APPEND KERNEL_FILES
        mtlComputeKernel.metal
-       mtlPatchCommon.metal
-       mtlPatchCommonTess.metal
-       mtlPatchBoxSplineTriangle.metal
-       mtlPatchBSpline.metal
-       mtlPatchGregory.metal
-       mtlPatchGregoryBasis.metal
-       mtlPatchGregoryTriangle.metal
-       mtlPatchLegacy.metal
     )
     list(APPEND PLATFORM_GPU_LIBRARIES
         ${METAL_LIBRARIES}

@@ -1,25 +1,8 @@
 //
 //   Copyright 2021 Pixar
 //
-//   Licensed under the Apache License, Version 2.0 (the "Apache License")
-//   with the following modification; you may not use this file except in
-//   compliance with the Apache License and the following modification to it:
-//   Section 6. Trademarks. is deleted and replaced with:
-//
-//   6. Trademarks. This License does not grant permission to use the trade
-//      names, trademarks, service marks, or product names of the Licensor
-//      and its affiliates, except as required to comply with Section 4(c) of
-//      the License and to reproduce the content of the NOTICE file.
-//
-//   You may obtain a copy of the Apache License at
-//
-//       http://www.apache.org/licenses/LICENSE-2.0
-//
-//   Unless required by applicable law or agreed to in writing, software
-//   distributed under the Apache License with the above modification is
-//   distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-//   KIND, either express or implied. See the Apache License for the specific
-//   language governing permissions and limitations under the Apache License.
+//   Licensed under the terms set forth in the LICENSE.txt file available at
+//   https://opensubdiv.org/license.
 //
 
 #ifndef OPENSUBDIV3_IRREGULAR_PATCH_BUILDER_H
@@ -74,6 +57,9 @@ public:
     void print() const;
 
 public:
+    //  This will not be necessary if use of the index map is ever removed:
+    bool ControlHullDependsOnMeshIndices() const { return _useControlVertMap; }
+
     //  Methods to query the number and indices of control vertices:
     int GetNumControlVertices() const { return _numControlVerts; }
 
@@ -104,6 +90,8 @@ private:
         int          numControlVerts;
         int          nextControlVert;
         int          surfaceIndicesOffset;
+        unsigned int isVal2Interior   : 1;
+        unsigned int preVal2Interior  : 1;
         unsigned int singleSharedVert : 1;
         unsigned int singleSharedFace : 1;
     };
@@ -127,7 +115,7 @@ private:
                                 int  corner,      int nextPerimeterVert) const;
     void getControlFaceVertices(int  faceVerts[], int numFaceVerts,
                                 int  corner,      int nextPerimeterVert,
-                                bool lastFace) const;
+                                bool lastFace,    int numVal2InLast) const;
     void getControlFaceVertices(int  faceVerts[], int numFaceVerts,
                                 int  corner,      Index const srcVerts[]) const;
 

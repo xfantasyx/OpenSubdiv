@@ -1,25 +1,8 @@
 //
 //   Copyright 2022 Pixar
 //
-//   Licensed under the Apache License, Version 2.0 (the "Apache License")
-//   with the following modification; you may not use this file except in
-//   compliance with the Apache License and the following modification to it:
-//   Section 6. Trademarks. is deleted and replaced with:
-//
-//   6. Trademarks. This License does not grant permission to use the trade
-//      names, trademarks, service marks, or product names of the Licensor
-//      and its affiliates, except as required to comply with Section 4(c) of
-//      the License and to reproduce the content of the NOTICE file.
-//
-//   You may obtain a copy of the Apache License at
-//
-//       http://www.apache.org/licenses/LICENSE-2.0
-//
-//   Unless required by applicable law or agreed to in writing, software
-//   distributed under the Apache License with the above modification is
-//   distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-//   KIND, either express or implied. See the Apache License for the specific
-//   language governing permissions and limitations under the Apache License.
+//   Licensed under the terms set forth in the LICENSE.txt file available at
+//   https://opensubdiv.org/license.
 //
 
 //------------------------------------------------------------------------------
@@ -217,8 +200,14 @@ tessellateToObj(Far::TopologyRefiner const & meshTopology,
 
     //
     //  Assign Tessellation Options applied for all faces.  Tessellations
-    //  allow the creating of either 3- or 4-sided faces -- both of which
+    //  allow the creation of either 3- or 4-sided faces -- both of which
     //  are supported here via a command line option:
+    //
+    //  Remember that the use of non-uniform tessellation rates can lead
+    //  to triangles being generated in 4-sided facets along boundaries
+    //  (quad-preservation does not generate all quads). Such triangles
+    //  are indicated by the use of an invalid/negative index in the fourth
+    //  position.
     //
     int const tessFacetSize = 3 + options.tessQuadsFlag;
 
@@ -333,6 +322,9 @@ tessellateToObj(Far::TopologyRefiner const & meshTopology,
         //  using the number of vertices generated prior to this face. One
         //  of several Tessellation methods to transform the facet indices
         //  simply translates all indices by the desired offset.
+        //
+        //  Remember also that triangles may be generated in 4-sided facets
+        //  along boundaries and should be detected accordingly.
         //
         int objVertexIndexOffset = objWriter.GetNumVertices();
 

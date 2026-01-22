@@ -1,29 +1,14 @@
 //
 //   Copyright 2021 Pixar
 //
-//   Licensed under the Apache License, Version 2.0 (the "Apache License")
-//   with the following modification; you may not use this file except in
-//   compliance with the Apache License and the following modification to it:
-//   Section 6. Trademarks. is deleted and replaced with:
-//
-//   6. Trademarks. This License does not grant permission to use the trade
-//      names, trademarks, service marks, or product names of the Licensor
-//      and its affiliates, except as required to comply with Section 4(c) of
-//      the License and to reproduce the content of the NOTICE file.
-//
-//   You may obtain a copy of the Apache License at
-//
-//       http://www.apache.org/licenses/LICENSE-2.0
-//
-//   Unless required by applicable law or agreed to in writing, software
-//   distributed under the Apache License with the above modification is
-//   distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-//   KIND, either express or implied. See the Apache License for the specific
-//   language governing permissions and limitations under the Apache License.
+//   Licensed under the terms set forth in the LICENSE.txt file available at
+//   https://opensubdiv.org/license.
 //
 
 #include "../bfr/faceVertex.h"
 #include "../sdc/crease.h"
+#include "../vtr/array.h"
+#include "../vtr/stackBuffer.h"
 
 #include <algorithm>
 #include <cstring>
@@ -628,7 +613,7 @@ FaceVertex::ConnectUnOrderedFaces(Index const fvIndices[]) {
     //  properties of the corner:
     assignUnOrderedFaceNeighbors(edges, feEdges);
 
-    finalizeUnOrderedTags(edges, numEdges);
+    finalizeUnOrderedTags(edges, numEdges, fvIndices);
 }
 
 //
@@ -797,7 +782,8 @@ FaceVertex::assignUnOrderedFaceNeighbors(Edge const  edges[],
 }
 
 void
-FaceVertex::finalizeUnOrderedTags(Edge const edges[], int numEdges) {
+FaceVertex::finalizeUnOrderedTags(Edge const edges[], int numEdges,
+                                  Index const fvIndices[]) {
 
     //
     //  Summarize properties of the corner given the number and nature of
@@ -850,9 +836,12 @@ FaceVertex::finalizeUnOrderedTags(Edge const edges[], int numEdges) {
 
         if (!hasDegenerateEdges && !hasDuplicateEdges && !hasBoundaryEdges) {
             //  Special crease case that avoids sharpening: two interior
-            //  non-manifold edges radiating more than two sets of faces:
-            isNonManifoldCrease = (numNonManifoldEdges == 2) &&
-                                  (GetNumFaces() > numEdges);
+            //  non-manifold edges radiating more than two sets of faces.
+            //  This requires closer inspection to confirm, so make use of
+            //  as many pre-conditions available here to avoid doing so:
+            isNonManifoldCrease = !_isExpInfSharp &&
+                (numNonManifoldEdges == 2) && (GetNumFaces() > numEdges) &&
+                testNonManifoldCrease(edges, numEdges, fvIndices);
         }
     } else {
         //  Mismatch between number of incident faces and edges:
@@ -895,6 +884,102 @@ FaceVertex::finalizeUnOrderedTags(Edge const edges[], int numEdges) {
         _tag._infSharpVerts = true;
         _tag._semiSharpVerts = false;
     }
+}
+
+bool
+FaceVertex::testNonManifoldCrease(Edge const edges[], int numEdges,
+                                  Index const fvIndices[]) const {
+    //
+    //  Local struct that keeps track of face-corners remaining around
+    //  a vertex as those visited as part of connected manifold subsets
+    //  are removed during inspection:
+    //
+    struct FaceCornerArray {
+        typedef Vtr::internal::StackBuffer<int,32,true> MemberArray;
+        typedef Vtr::ConstArray<int>                    SearchArray;
+
+        MemberArray leading;
+        MemberArray trailing;
+        int         size;
+
+        FaceCornerArray(int n) : leading(n), trailing(n), size(n) { }
+
+        int FindLeading(int vertex) const {
+            return SearchArray(leading, size).FindIndex(vertex);
+        }
+        int FindTrailing(int vertex) const {
+            return SearchArray(trailing, size).FindIndex(vertex);
+        }
+        void RemoveFace(int index) {
+            std::swap(leading[index],  leading[size - 1]);
+            std::swap(trailing[index], trailing[size - 1]);
+            -- size;
+        }
+        int RemoveManifoldSubset(int startVertex, int endVertex) {
+            assert(startVertex != endVertex);
+
+            for (int nextVertex = startVertex; nextVertex != endVertex; ) {
+                int faceIndex = FindLeading(nextVertex);
+                if (faceIndex < 0) return (nextVertex == startVertex) ? 0 : -1;
+
+                nextVertex = trailing[faceIndex];
+                if (nextVertex == startVertex) return -1;
+
+                RemoveFace(faceIndex);
+            }
+            return 1;
+        }
+    };
+
+    //
+    //  Identify the vertices at the ends of the two non-manifold edges
+    //  of the potential crease:
+    //
+    int creaseEnd[2] = { -1, -1 };
+
+    for (int i = 0; i < numEdges; ++i) {
+        if (edges[i].nonManifold) {
+            creaseEnd[creaseEnd[0] >= 0] = edges[i].endVertex;
+        }
+    }
+    assert((creaseEnd[0] >= 0) && (creaseEnd[1] >= 0));
+
+    //
+    //  Use the locally defined set of face-edge pairs to determine if
+    //  the collection of faces around the vertex forms a non-manifold
+    //  crease.
+    //
+    //  First initialize the FaceCornerArray from the face vertices:
+    //
+    int numFaces = GetNumFaces();
+
+    FaceCornerArray faceCorners(numFaces);
+
+    for (int i = 0; i < numFaces; ++i) {
+        faceCorners.leading[i]  = GetFaceIndexLeading( i, fvIndices);
+        faceCorners.trailing[i] = GetFaceIndexTrailing(i, fvIndices);
+    }
+
+    //  Remove faces for manifold subsets in one direction:
+    int removed = 0;
+    do {
+        removed = faceCorners.RemoveManifoldSubset(creaseEnd[0], creaseEnd[1]);
+        if (removed < 0) {
+            return false;
+        }
+    } while (removed);
+
+    if (faceCorners.size == 0) return true;
+
+    //  Remove faces for manifold subsets in the other direction:
+    do {
+        removed = faceCorners.RemoveManifoldSubset(creaseEnd[1], creaseEnd[0]);
+        if (removed < 0) {
+            return false;
+        }
+    } while (removed);
+
+    return (faceCorners.size == 0);
 }
 
 } // end namespace Bfr
